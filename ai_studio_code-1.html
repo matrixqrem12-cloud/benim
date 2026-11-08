@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Staphylococcus Laser Attack</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0d0614;
+      font-family: sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      color: #ffde59;
+      font-size: 14px;
+      font-weight: bold;
+      pointer-events: none;
+      text-shadow: 1px 1px 4px #000;
+    }
+    #overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(13, 6, 20, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+    #overlay h1 {
+      color: #ff3366;
+      font-size: 26px;
+      margin-bottom: 12px;
+      text-shadow: 0 0 10px #ff0055;
+    }
+    .btn {
+      margin-top: 20px;
+      padding: 14px 32px;
+      background: #ffde59;
+      color: #000;
+      border: none;
+      border-radius: 30px;
+      font-size: 18px;
+      font-weight: bold;
+      box-shadow: 0 0 15px #ffde59;
+    }
+    .help-hint {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      color: rgba(255,255,255,0.4);
+      font-size: 12px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="ui">
+    <div>🦠 CAN: <span id="hp">100</span>%</div>
+    <div>💀 SKOR: <span id="score">0</span></div>
+    <div>⚡ DALGA: <span id="wave">1</span></div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <div class="help-hint">
+    <div>👈 Sol Ekran: Hareket</div>
+    <div>Sağ Ekran: Nişan & Lazer 👉</div>
+  </div>
+
+  <div id="overlay">
+    <h1>STAPHYLOCOCCUS: LAZER SALDIRISI</h1>
+    <p>İnsanlar ve doktorlar seni dezenfekte etmeye geliyor!</p>
+    <p style="margin-top: 10px; font-size: 13px; color: #a8a0c2;">
+      📱 <b>Sol parmağınla</b> hareket et.<br/>
+      🎯 <b>Sağ parmağınla</b> dokunduğun yere lazer sık!
+    </p>
+    <button class="btn" onclick="startGame()">OYUNU BAŞLAT</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const hpEl = document.getElementById('hp');
+    const scoreEl = document.getElementById('score');
+    const waveEl = document.getElementById('wave');
+    const overlay = document.getElementById('overlay');
+
+    let W = window.innerWidth;
+    let H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
+
+    window.addEventListener('resize', () => {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    });
+
+    // Ses Efektleri (Web Audio API)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
+    function playSfx(freq1, freq2, duration, type = 'sawtooth') {
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = type;
+        const now = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(freq1, now);
+        osc.frequency.exponentialRampToValueAtTime(freq2, now + duration);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + duration);
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch(e) {}
+    }
+
+    // Oyun Değişkenleri
+    let player, lasers, enemies, enemyProjectiles, particles;
+    let score = 0, wave = 1, isGameOver = false, shootTimer = 0;
+
+    // Dokunmatik Joystick & Nişan Yönetimi
+    let moveTouchId = null, shootTouchId = null;
+    let joystickOrigin = { x: 0, y: 0 };
+    let moveDir = { x: 0, y: 0 };
+    let aimDir = { x: 1, y: 0 };
+    let isShooting = false;
+
+    window.addEventListener('touchstart', (e) => {
+      for (let t of e.changedTouches) {
+        if (t.clientX < W / 2 && moveTouchId === null) {
+          moveTouchId = t.identifier;
+          joystickOrigin = { x: t.clientX, y: t.clientY };
+          moveDir = { x: 0, y: 0 };
+        } else if (t.clientX >= W / 2) {
+          shootTouchId = t.identifier;
+          isShooting = true;
+          updateAim(t);
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      for (let t of e.changedTouches) {
+        if (t.identifier === moveTouchId) {
+          const dx = t.clientX - joystickOrigin.x;
+          const dy = t.clientY - joystickOrigin.y;
+          const dist = Math.hypot(dx, dy);
+          const maxR = 45;
+          if (dist > 0) {
+            moveDir.x = (dx / dist) * Math.min(1, dist / maxR);
+            moveDir.y = (dy / dist) * Math.min(1, dist / maxR);
+          }
+        } else if (t.identifier === shootTouchId) {
+          updateAim(t);
+        }
+      }
+    }, { passive: false });
+
+    function updateAim(touch) {
+      const dx = touch.clientX - player.x;
+      const dy = touch.clientY - player.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0) {
+        aimDir.x = dx / dist;
+        aimDir.y = dy / dist;
+      }
+    }
+
+    function resetTouch(id) {
+      if (id === moveTouchId) {
+        moveTouchId = null;
+        moveDir = { x: 0, y: 0 };
+      }
+      if (id === shootTouchId) {
+        shootTouchId = null;
+        isShooting = false;
+      }
+    }
+    window.addEventListener('touchend', (e) => {
+      for (let t of e.changedTouches) resetTouch(t.identifier);
+    });
+    window.addEventListener('touchcancel', (e) => {
+      for (let t of e.changedTouches) resetTouch(t.identifier);
+    });
+
+    // Staphylococcus Kümesi (Üzüm salkımı morfolojisi)
+    const staphNodes = [
+      { ox: 0, oy: 0, r: 15 },
+      { ox: -13, oy: -10, r: 12 },
+      { ox: 13, oy: -8, r: 12 },
+      { ox: -14, oy: 10, r: 13 },
+      { ox: 12, oy: 12, r: 13 },
+      { ox: 2, oy: -17, r: 11 },
+      { ox: -3, oy: 17, r: 11 }
+    ];
+
+    function initGame() {
+      player = { x: W / 2, y: H / 2, speed: 4.2, hp: 100 };
+      lasers = [];
+      enemies = [];
+      enemyProjectiles = [];
+      particles = [];
+      score = 0;
+      wave = 1;
+      isGameOver = false;
+      shootTimer = 0;
+
+      hpEl.innerText = player.hp;
+      scoreEl.innerText = score;
+      waveEl.innerText = wave;
+    }
+
+    function spawnEnemy() {
+      const side = Math.floor(Math.random() * 4);
+      let x, y;
+      if (side === 0) { x = Math.random() * W; y = -40; }
+      else if (side === 1) { x = W + 40; y = Math.random() * H; }
+      else if (side === 2) { x = Math.random() * W; y = H + 40; }
+      else { x = -40; y = Math.random() * H; }
+
+      const isDoctor = Math.random() > 0.65;
+      enemies.push({
+        x: x, y: y,
+        type: isDoctor ? 'doctor' : 'human',
+        speed: isDoctor ? 1.5 : 2.2,
+        hp: isDoctor ? 4 : 2,
+        shootCooldown: 80,
+        leg: 0
+      });
+    }
+
+    function addExplosion(x, y, color, count = 10) {
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = Math.random() * 4 + 1;
+        particles.push({
+          x, y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          life: 25,
+          maxLife: 25,
+          color,
+          size: Math.random() * 4 + 2
+        });
+      }
+    }
+
+    function update() {
+      if (isGameOver) return;
+
+      // Oyuncu hareketi
+      player.x += moveDir.x * player.speed;
+      player.y += moveDir.y * player.speed;
+      player.x = Math.max(25, Math.min(W - 25, player.x));
+      player.y = Math.max(25, Math.min(H - 25, player.y));
+
+      // Lazer Ateşi
+      if (shootTimer > 0) shootTimer--;
+      if (isShooting && shootTimer <= 0) {
+        lasers.push({
+          x: player.x,
+          y: player.y,
+          vx: aimDir.x * 12,
+          vy: aimDir.y * 12,
+          life: 60
+        });
+        playSfx(900, 150, 0.1, 'sawtooth');
+        shootTimer = 8;
+      }
+
+      // Lazerleri Güncelle
+      for (let i = lasers.length - 1; i >= 0; i--) {
+        const l = lasers[i];
+        l.x += l.vx;
+        l.y += l.vy;
+        l.life--;
+        if (l.life <= 0 || l.x < 0 || l.x > W || l.y < 0 || l.y > H) {
+          lasers.splice(i, 1);
+        }
+      }
+
+      // Düşman Üretimi
+      if (Math.random() < 0.03 + (wave * 0.005)) {
+        if (enemies.length < 15 + wave * 2) spawnEnemy();
+      }
+
+      // Düşmanları Güncelle
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const ang = Math.atan2(player.y - e.y, player.x - e.x);
+        e.x += Math.cos(ang) * e.speed;
+        e.y += Math.sin(ang) * e.speed;
+        e.leg += 0.2;
+
+        // Doktor Dezenfektan Sıkar
+        if (e.type === 'doctor') {
+          e.shootCooldown--;
+          if (e.shootCooldown <= 0) {
+            enemyProjectiles.push({
+              x: e.x, y: e.y,
+              vx: Math.cos(ang) * 4.5,
+              vy: Math.sin(ang) * 4.5
+            });
+            e.shootCooldown = 95;
+          }
+        }
+
+        // Oyuncuya Temas
+        if (Math.hypot(player.x - e.x, player.y - e.y) < 26) {
+          player.hp -= 15;
+          hpEl.innerText = Math.max(0, player.hp);
+          addExplosion(e.x, e.y, '#ff4444', 8);
+          playSfx(140, 40, 0.1, 'square');
+          enemies.splice(i, 1);
+          if (player.hp <= 0) gameOver();
+          continue;
+        }
+
+        // Lazer Vuruş Kontrolü
+        for (let j = lasers.length - 1; j >= 0; j--) {
+          const l = lasers[j];
+          if (Math.hypot(e.x - l.x, e.y - l.y) < 20) {
+            e.hp--;
+            lasers.splice(j, 1);
+            addExplosion(l.x, l.y, '#00ffff', 4);
+            playSfx(250, 80, 0.06, 'triangle');
+
+            if (e.hp <= 0) {
+              addExplosion(e.x, e.y, e.type === 'doctor' ? '#00e5ff' : '#ff7043', 14);
+              enemies.splice(i, 1);
+              score += (e.type === 'doctor' ? 25 : 10);
+              scoreEl.innerText = score;
+              if (score >= wave * 120) {
+                wave++;
+                waveEl.innerText = wave;
+                player.hp = Math.min(100, player.hp + 20);
+                hpEl.innerText = player.hp;
+              }
+              break;
+            }
+          }
+        }
+      }
+
+      // Dezenfektan Damlaları
+      for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+        const ep = enemyProjectiles[i];
+        ep.x += ep.vx;
+        ep.y += ep.vy;
+
+        if (Math.hypot(player.x - ep.x, player.y - ep.y) < 20) {
+          player.hp -= 10;
+          hpEl.innerText = Math.max(0, player.hp);
+          addExplosion(ep.x, ep.y, '#00e5ff', 8);
+          enemyProjectiles.splice(i, 1);
+          if (player.hp <= 0) gameOver();
+          continue;
+        }
+
+        if (ep.x < 0 || ep.x > W || ep.y < 0 || ep.y > H) {
+          enemyProjectiles.splice(i, 1);
+        }
+      }
+
+      // Parçacıklar
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Hücre Arka Planı
+      ctx.strokeStyle = "rgba(100, 60, 160, 0.15)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < W; x += 50) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = 0; y < H; y += 50) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+
+      // Lazerler
+      ctx.save();
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#00ffff';
+      ctx.fillStyle = '#00ffff';
+      lasers.forEach(l => {
+        ctx.beginPath();
+        ctx.arc(l.x, l.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+
+      // Dezenfektanlar
+      ctx.fillStyle = '#80deea';
+      enemyProjectiles.forEach(ep => {
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // İnsanlar
+      enemies.forEach(e => {
+        ctx.save();
+        ctx.translate(e.x, e.y);
+        ctx.fillStyle = '#ffdbac';
+        ctx.beginPath(); ctx.arc(0, -14, 6, 0, Math.PI * 2); ctx.fill(); // Baş
+        ctx.fillStyle = e.type === 'doctor' ? '#e0f7fa' : '#ff5722';
+        ctx.fillRect(-5, -8, 10, 14); // Gövde
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2.5;
+        const lo = Math.sin(e.leg) * 5;
+        ctx.beginPath();
+        ctx.moveTo(-2, 6); ctx.lineTo(-2 + lo, 16);
+        ctx.moveTo(2, 6); ctx.lineTo(2 - lo, 16);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Staphylococcus Bakterisi (Oyuncu)
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = "#ffeb3b";
+      staphNodes.forEach(n => {
+        const grad = ctx.createRadialGradient(n.ox - 2, n.oy - 2, 2, n.ox, n.oy, n.r);
+        grad.addColorStop(0, '#fff59d');
+        grad.addColorStop(0.6, '#ffd700');
+        grad.addColorStop(1, '#b8860b');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(n.ox, n.oy, n.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Lazer Namlusu (Nişan yönüne döner)
+      const aimAngle = Math.atan2(aimDir.y, aimDir.x);
+      ctx.rotate(aimAngle);
+      ctx.fillStyle = '#00ffff';
+      ctx.fillRect(0, -3, 22, 6);
+      ctx.restore();
+
+      // Parçacıklar
+      particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life / p.maxLife;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      });
+
+      // Sanal Joystick Çizimi (Dokunulduğunda görünür)
+      if (moveTouchId !== null) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(joystickOrigin.x, joystickOrigin.y, 45, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 222, 89, 0.5)';
+        ctx.beginPath();
+        ctx.arc(joystickOrigin.x + moveDir.x * 35, joystickOrigin.y + moveDir.y * 35, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+      if (!audioCtx) audioCtx = new AudioContext();
+      overlay.style.display = 'none';
+      initGame();
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      overlay.style.display = 'flex';
+      overlay.innerHTML = `
+        <h1>DEZENFEKTE EDİLDİN!</h1>
+        <p>İnsanlar koloniyi yok etti.</p>
+        <p style="margin: 8px 0;">Skorun: <b>${score}</b> | Dalga: <b>${wave}</b></p>
+        <button class="btn" onclick="startGame()">TEKRAR DENE</button>
+      `;
+    }
+
+    initGame();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
