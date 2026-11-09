@@ -1,0 +1,179 @@
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Komite Deneme Sınavı</title>
+<style>
+:root{--bg:#f5f6f8;--cd:#fff;--tx:#1b1f24;--mu:#5d6773;--bd:#d6dce4;--ac:#2a5bd7;--ok:#d8f1e0;--okb:#1e8f4d;--no:#fbe0e0;--nob:#c23b3b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#14171b;--cd:#1e2329;--tx:#e8ebef;--mu:#9aa5b1;--bd:#333b45;--ac:#6d93ff;--ok:#16382392;--okb:#4cc380;--no:#41191992;--nob:#f07a7a}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14171b;--cd:#1e2329;--tx:#e8ebef;--mu:#9aa5b1;--bd:#333b45;--ac:#6d93ff;--ok:#16382392;--okb:#4cc380;--no:#41191992;--nob:#f07a7a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:720px;margin:auto;padding:16px}
+h1{font-size:20px;margin:4px 0 12px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+button{font:inherit;color:inherit;cursor:pointer}
+.tab{border:1px solid var(--bd);background:var(--cd);border-radius:20px;padding:6px 12px}
+.tab.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.st{display:flex;justify-content:space-between;color:var(--mu);font-size:14px;margin-bottom:6px;flex-wrap:wrap;gap:4px}
+.bar{height:6px;background:var(--bd);border-radius:3px;overflow:hidden;margin-bottom:14px}
+.bar i{display:block;height:100%;background:var(--ac)}
+.c{background:var(--cd);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.q{font-weight:600;margin:0 0 12px}
+.o{display:block;width:100%;text-align:left;background:var(--cd);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.o:hover:not(:disabled){border-color:var(--ac)}
+.o.ok{background:var(--ok);border-color:var(--okb)}
+.o.no{background:var(--no);border-color:var(--nob)}
+.o:disabled{cursor:default}
+.m{min-height:22px;font-size:14px;margin-top:4px}
+.nav{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.nav button{border:1px solid var(--bd);background:var(--cd);border-radius:10px;padding:8px 16px}
+.nav .p{background:var(--ac);border-color:var(--ac);color:#fff}
+.nav button:disabled{opacity:.4}
+</style></head><body><div class="w">
+<h1>Komite Deneme Sınavı · 500 Soru</h1>
+<div class="tabs" id="tabs"></div>
+<div class="st"><span id="pos"></span><span id="sc"></span></div>
+<div class="bar"><i id="pb" style="width:0"></i></div>
+<div class="c" id="card"></div>
+<div class="nav"><button id="pv">← Önceki</button><button id="rs">Yeni set</button><button id="nx" class="p">Sonraki →</button></div>
+</div>
+<script>
+// Kavram grupları: [branş, konu, üyeler, üye olmayanlar]
+const S=[
+["Mikro","Zorunlu hücre içi protozoonlar","Toxoplasma gondii|Leishmania infantum|Trypanosoma cruzi|Plasmodium falciparum|Plasmodium vivax|Leishmania donovani","Trypanosoma brucei rhodesiense|Trypanosoma brucei gambiense|Giardia lamblia|Entamoeba histolytica|Trichomonas vaginalis|Balantidium coli"],
+["Mikro","Doğal (innate) bağışıklık unsurları","Deri bariyeri|Mide asidi etkisi|Kanda lizozim etkisi|Makrofaj fagositozu|NK hücre aktivitesi|Mukosilier temizleme","Salgısal IgA’nın koruyucu etkisi|Bellek B hücresi yanıtı|Sitotoksik T hücre yanıtı|Aşıyla kazanılan bağışıklık|Yardımcı T hücre yanıtı|Antikor aracılı nötralizasyon"],
+["Mikro","İnflamasyon mediatörleri","Bradikinin|Serotonin|Histamin|Prostaglandin|Lökotrien|IL-1|TNF-α","Opsonin|Kollajen|Keratin|Miyozin|Aktin"],
+["Mikro","İmmünojenitesi yüksek antijenin özellikleri","Yabancı olma|Yüksek molekül ağırlığı|Protein yapıda olma|Kompleks yapıda olma|Kimyasal kararlılık","10 kDa’dan küçük olma|Kendi dokusuna ait olma|Çok basit kimyasal yapı|Tolerans gelişmiş molekül olma"],
+["Mikro","MHC sınıf II taşıyan antijen sunucu hücreler","Dendritik hücre|Makrofaj|B lenfosit|Langerhans hücresi|Kupffer hücresi","Nötrofil|NK hücresi|Olgun eritrosit|Sitotoksik T hücre"],
+["Mikro","Th2 sitokinleri","IL-4|IL-5|IL-10|IL-13","IFN-γ|IL-2|TNF-β|IL-12"],
+["Mikro","Th1 yanıtıyla ilişkili sitokinler","IFN-γ|IL-2|TNF-β|IL-12","IL-4|IL-5|IL-13"],
+["Mikro","Canlı atenüe aşılar (gebelikte uygulanmaz)","Kızamık|Kızamıkçık|Kabakulak|BCG|Suçiçeği|Sarı humma","Tetanus toksoidi|Hepatit B|İnaktif influenza|Difteri toksoidi|Aselüler boğmaca|Pnömokok polisakkarit"],
+["Mikro","Rekombinant aşılar","Hepatit B|HPV|Zoster (rekombinant gE)|Meningokok B (rekombinant protein)","BCG|Kızamık|Kabakulak|Kızamıkçık|Sarı humma|Oral polio (Sabin)"],
+["Mikro","Tip IV (gecikmiş) aşırı duyarlılık","Tüberkülin testi|Temas dermatiti|Akut greft reddi|Granülom oluşumu|Lepromin testi","Anafilaksi|Atopik astım|Serum hastalığı|Hemolitik transfüzyon reaksiyonu|Arthus reaksiyonu|Goodpasture sendromu"],
+["Mikro","Tip I (IgE aracılı) aşırı duyarlılık","Anafilaksi|Atopik astım|Alerjik rinit|Besin alerjisi|Ürtiker","Tüberkülin testi|Temas dermatiti|Serum hastalığı|Hemolitik transfüzyon reaksiyonu|Arthus reaksiyonu"],
+["Mikro","Nematodlar","Ascaris lumbricoides|Enterobius vermicularis|Trichuris trichiura|Ancylostoma duodenale|Strongyloides stercoralis|Trichinella spiralis","Taenia saginata|Echinococcus granulosus|Fasciola hepatica|Schistosoma mansoni|Hymenolepis nana|Diphyllobothrium latum"],
+["Mikro","Sestodlar (şerit solucanlar)","Taenia saginata|Taenia solium|Echinococcus granulosus|Hymenolepis nana|Diphyllobothrium latum","Ascaris lumbricoides|Enterobius vermicularis|Fasciola hepatica|Schistosoma mansoni|Trichuris trichiura"],
+["Mikro","Kapaklı (operkülümlü) yumurtası olan helmintler","Fasciola hepatica|Diphyllobothrium latum|Clonorchis sinensis|Paragonimus westermani","Ascaris lumbricoides|Enterobius vermicularis|Taenia saginata|Hymenolepis nana|Schistosoma mansoni"],
+["Mikro","Kamçılılar (Mastigophora)","Giardia lamblia|Trichomonas vaginalis|Leishmania donovani|Trypanosoma cruzi","Plasmodium vivax|Toxoplasma gondii|Cryptosporidium parvum|Entamoeba histolytica|Babesia microti"],
+["Mikro","Apicomplexa üyeleri","Plasmodium vivax|Toxoplasma gondii|Cryptosporidium parvum|Cyclospora cayetanensis|Babesia microti","Giardia lamblia|Leishmania donovani|Trypanosoma cruzi|Trichomonas vaginalis|Entamoeba histolytica"],
+["Fizyo","K vitaminine bağımlı pıhtılaşma faktörleri","Faktör II|Faktör VII|Faktör IX|Faktör X|Protein C|Protein S","Faktör I (fibrinojen)|Faktör V|Faktör VIII|Faktör XI|Faktör XII|Faktör XIII"],
+["Fizyo","Trombinin görevleri","Fibrinojeni fibrine çevirme|Faktör XIII’ü aktive etme|Faktör V’i aktive etme|Faktör VIII’i aktive etme|Trombositleri aktive etme","Plazminojeni plazmine çevirme|Fibrin yıkımı|Heparin salgılama|Faktör X sentezi|Eritropoetin üretimi"],
+["Fizyo","Hb–O2 disosiasyon eğrisini sağa kaydıran etkenler","pH azalması|CO2 artışı|2,3-DPG artışı|Sıcaklık artışı|Egzersiz","pH artışı|CO2 azalması|2,3-DPG azalması|Sıcaklık düşmesi|Fetal Hb varlığı|Karbonmonoksit bağlanması"],
+["Fizyo","Anemiye yol açan durumlar","Demir eksikliği|B12 vitamini eksikliği|Eritrosit membran bozukluğu|Hemoglobin zincir anomalisi|Folat eksikliği|Kronik kan kaybı","Yaygın doku hipoksisi|Yüksek irtifaya uyum|Eritropoetin artışı|Dehidratasyon (hemokonsantrasyon)"],
+["Fizyo","Trombositlerin hemostatik işlevleri","Subendotele adezyon|Agregasyon|ADP salgılama|Tromboksan A2 salgılama|Serotonin salgılama","Fibrinojen sentezi|Protrombin sentezi|Antikor üretimi|Hemoglobin sentezi|Heparin sentezi"],
+["Fizyo","Demir metabolizmasında yer alan proteinler","Transferrin|Ferritin|Hemosiderin|Laktoferrin|Hepsidin","Haptoglobin|Seruloplazmin|Hemopeksin|Transkobalamin|Albümin"],
+["Fizyo","Eritrosit yapımı için gerekli etkenler","Demir|Vitamin B12|Folik asit|Eritropoetin|Vitamin B6|Bakır","Vitamin K|Vitamin D|Heparin|Fibrinojen|Trombopoetin"],
+["Fizyo","Kan pıhtılaşmasını önleyen (antikoagülan) etkenler","Heparin|Antitrombin III|Protein C|Protein S|Trombomodulin|TFPI","Fibrinojen|Faktör VIII|von Willebrand faktör|Tromboksan A2|Kalsiyum|Doku tromboplastini"],
+["Fizyo","Pıhtılaşmanın intrinsik yoluna özgü faktörler","Faktör XII|Faktör XI|Faktör IX|Faktör VIII|Prekallikrein|HMWK","Faktör VII|Doku faktörü|Faktör XIII|Faktör I|Protein C"],
+["Histo","Eozinofil granül içeriği","ECP|MBP|EDN|Eozinofil peroksidaz|Aril sülfataz|Histaminaz","Heparin|Histamin|Kondroitin sülfat|Miyeloperoksidaz|Kollajenaz"],
+["Histo","Bazofil granül içeriği","Histamin|Heparin|Kondroitin sülfat|ECF-A|Lökotrien","MBP|ECP|EDN|Miyeloperoksidaz"],
+["Histo","Nötrofil azurofil (primer) granül içeriği","Miyeloperoksidaz|Defensin|Katepsin G|Asit fosfataz|Elastaz","Laktoferrin|Kollajenaz|Jelatinaz|Alkalen fosfataz"],
+["Histo","Mononükleer fagosit sistemi hücreleri","Monosit|Kupffer hücresi|Mikroglia|Alveoler makrofaj|Osteoklast","Nötrofil|Eozinofil|Bazofil|Lenfosit|Eritrosit"],
+["Histo","Dalakta kırmızı pulpa yapıları","Billroth kordonları|Venöz sinüsler|Makrofajlar|Plazma hücreleri","PALS (periarteriyel lenfoid kılıf)|Lenfoid foliküller|Marjinal zon|Germinal merkez|Santral arter"],
+["Histo","Timus için doğru bilgiler","Epitelyal retiküler hücre içerir|Retiküler lif bulunmaz|Hassall cisimcikleri medullada yer alır|Kan-timus bariyeri kortekstedir|T lenfosit olgunlaşma yeridir","Retiküler lif içerir|Germinal merkezli foliküller bulunur|B lenfosit olgunlaşma yeridir|Medullada kan-timus bariyeri vardır|Afferent lenf damarı alır"],
+["Histo","Eritrosit membranının periferik (iskelet) proteinleri","Spektrin|Aktin|Ankirin|Band 4.1|Adduksin","Glikoforin A|Band 3|Akuaporin-1|Rh proteinleri"],
+["Histo","Sekonder lenfoid organlar","Lenf nodu|Dalak|Tonsil|Peyer plakları|Apendiks","Kemik iliği|Timus"],
+["Kimya","Hem biyosentezinde yer alan moleküller","Glisin|Süksinil-KoA|δ-Aminolevulinik asit|Porfobilinojen|Protoporfirin IX","Tirozin|Kolesterol|Laktat|Üre|Lösin"],
+["Kimya","Porfiriler","Akut intermittent porfiri|Porfiria kutanea tarda|Konjenital eritropoietik porfiri|Eritropoietik protoporfiri|Varyegat porfiri","Talasemi|Orak hücreli anemi|Gilbert sendromu|Wilson hastalığı|G6PD eksikliği"],
+["Kimya","Non-enzimatik antioksidanlar","Glutatyon|Vitamin C|Vitamin E|β-karoten|Ürik asit|Bilirubin","SOD|Katalaz|Glutatyon peroksidaz|Glutatyon redüktaz|Peroksiredoksin"],
+["Kimya","Enzimatik antioksidanlar","SOD|Katalaz|Glutatyon peroksidaz|Glutatyon redüktaz|Peroksiredoksin","Glutatyon|Vitamin C|Vitamin E|β-karoten|Ürik asit"],
+["Kimya","Hemoglobin molekülünde bulunabilen globin zincirleri","α|β|γ|δ|ε|ζ","κ|λ|σ|ω|ρ"],
+["Kimya","Hem yıkım ürünleri","Biliverdin|Bilirubin|Ürobilinojen|Sterkobilin|Karbonmonoksit|Demir","Kolesterol|Üre|Kreatinin|Laktat|Glikojen"]
+];
+// Doğrudan bilgi soruları: [branş, soru, doğru, yanlışlar]
+const F=[
+["Mikro","Aviditesi en yüksek immünoglobulin hangisidir?","IgM","IgG|IgA|IgE|IgD"],
+["Mikro","Plasentadan geçebilen immünoglobulin hangisidir?","IgG","IgM|IgA|IgE|IgD"],
+["Mikro","CD4 T hücrelerinin salgıladığı, T hücre büyüme faktörü olarak bilinen sitokin hangisidir?","IL-2","IL-1|IL-4|IL-5|IL-8"],
+["Mikro","Th2 hücrelerinin salgıladığı, IgE sınıf değişimini uyaran sitokin hangisidir?","IL-4","IL-2|IFN-γ|IL-12|TNF-α"],
+["Mikro","ADCC ile en çok uyarılan hücre hangisidir?","NK hücresi","Nötrofil|Makrofaj|Eritrosit|Bazofil"],
+["Mikro","En etkili antijen sunucu hücre hangisidir?","Dendritik hücre","Makrofaj|NK hücresi|Nötrofil|Foliküler dendritik hücre"],
+["Mikro","İnsan MHC (HLA) genleri hangi kromozomun hangi kolunda yer alır?","6. kromozomun kısa kolu","6. kromozomun uzun kolu|15. kromozomun kısa kolu|17. kromozomun uzun kolu|X kromozomunun kısa kolu"],
+["Mikro","Toksoplazmoz tanısı konulduğunda genellikle tedavi gerekmeyen grup hangisidir?","Lenfadenopatisi olan sağlıklı kişiler","Lenfadenopatisi olan immün yetmezlikliler|İmmün yetmezlikli gebeler|Korioretiniti olanlar|Yenidoğan konjenital toksoplazmozu"],
+["Mikro","Megakolon, megaözofagus ve kardiyomegali yapan etken hangisidir?","Trypanosoma cruzi","Trypanosoma brucei gambiense|Leishmania donovani|Plasmodium vivax|Toxoplasma gondii"],
+["Mikro","Dalak büyüklüğü ve ateşi olan, Phlebotomus ısırığı öyküsü bulunan hastanın örneğinde görülen form hangisidir?","Amastigot","Promastigot|Epimastigot|Tripomastigot|Metasiklik promastigot"],
+["Mikro","Chagas hastalığının vektörü hangisidir?","Triatoma (öpücük böceği)","Phlebotomus|Anopheles|Glossina (çeçe sineği)|Aedes"],
+["Mikro","Eski Dünya Leishmania türlerinin vektörü hangisidir?","Phlebotomus","Lutzomyia|Anopheles|Glossina|Triatoma"],
+["Mikro","HBsAg pozitif anneden doğan bebeğe nasıl bir bağışıklama uygulanır?","Hepatit B aşısı + HBIG (aktif ve pasif birlikte)","Yalnızca Hepatit B aşısı|Yalnızca HBIG|BCG|Hiçbir şey gerekmez"],
+["Mikro","Bir kişide üretilen spesifik immünoglobulin başka bir kişiye verilirse hangi bağışıklık sağlanmış olur?","Pasif edinsel bağışıklık","Aktif bağışıklık|Hücresel bağışıklık|Özgül doğal bağışıklık|Non-spesifik bağışıklık"],
+["Mikro","Flokülasyon temeline dayanan test hangisidir?","VDRL","ELISA|Western blot|Hemaglütinasyon inhibisyonu|PCR"],
+["Mikro","Protozoonlarda silya hangi yapıdan köken alır?","Bazal granül (kinetozom)","Golgi aygıtı|Çekirdek zarı|Ribozom|Peroksizom"],
+["Mikro","Protozoonlarda kamçının yapısı hangisidir?","Mikrotübül","Aktin filamanı|Ara filaman|Kollajen lifi|Miyozin"],
+["Fizyo","Tek yumurta ikizinden alınan organ nakli hangi greft türüdür?","İzogreft","Otogreft|Allogreft|Ksenogreft|Ortotopik greft"],
+["Fizyo","Hemoglobin hacmi eritrosit hacminin yaklaşık yüzde kaçıdır?","%34","%14|%54|%74|%94"],
+["Fizyo","Kandaki demiri bağlayarak böbrekten atılmasını önleyen plazma proteini hangisidir?","Transferrin","Albümin|Haptoglobin|Seruloplazmin|Hemopeksin"],
+["Fizyo","Serbest hemoglobini bağlayan plazma proteini hangisidir?","Haptoglobin","Transferrin|Albümin|Seruloplazmin|Ferritin"],
+["Fizyo","Kan silikon tüpe konulduğunda (temas aktivasyonu) ilk aktive olan faktör hangisidir?","Faktör XII","Faktör VII|Faktör X|Faktör V|Doku faktörü"],
+["Fizyo","Endotel hasarında trombositlerin ilk yanıtı hangisidir?","Subendotele bağlanma","Trombine bağlanma|Fibrin ipliklerine bağlanma|ADP salgılama|Tromboksan A2 salgılama"],
+["Fizyo","Eritropoetin en çok hangi organdan salgılanır?","Böbrek","Karaciğer|Dalak|Kemik iliği|Surrenal"],
+["Fizyo","Normal eritrositin dolaşımdaki ömrü yaklaşık kaç gündür?","120 gün","30 gün|60 gün|90 gün|180 gün"],
+["Histo","Aşağıdakilerden hangisi primer lenfoid organdır?","Kemik iliği","Dalak|Lenf nodu|Tonsil|Peyer plağı"],
+["Histo","Eritrositler arasında büyük boy farkı olmasına ne denir?","Anizositoz","Poikilositoz|Mikrositoz|Makrositoz|Polikromazi"],
+["Histo","Eritrosit gelişiminde çekirdeğin atıldığı evre hangisidir?","Ortokromatofilik eritroblast","Proeritroblast|Bazofilik eritroblast|Polikromatofilik eritroblast|Retikülosit"],
+["Histo","Glikoforin C ile etkileşen iskelet proteini hangisidir?","Band 4.1","Spektrin|Ankirin|Band 3|Hemoglobin"],
+["Histo","Timusa bağlı olup yalnızca T lenfosit içeren bölge hangisidir?","PALS (periarteriyel lenfoid kılıf)","Lenf nodu medullası|Dalakta marjinal zon|Dalakta Billroth kordonları|Lenf nodu dış korteksi"],
+["Histo","Lenf nodunda T lenfositlerin yerleştiği bölge hangisidir?","Parakorteks","Dış korteks|Medulla kordları|Subkapsüler sinüs|Germinal merkez"],
+["Histo","Antijenleri antikora bağlayıp B lenfositlere sunan hücre hangisidir?","Foliküler dendritik hücre","Langerhans hücresi|Makrofaj|Kupffer hücresi|Nötrofil"],
+["Histo","Nötrofil serisinde spesifik granüller ilk hangi evrede görülür?","Miyelosit","Miyeloblast|Promiyelosit|Metamiyelosit|Band hücresi"],
+["Kimya","Hem demirine (Fe2+) bağlı porfirini globin zincirine bağlayan aminoasit hangisidir?","Histidin","Glisin|Alanin|Lösin|Metiyonin"],
+["Kimya","HbA’nın β zincirinde 6. konumdaki glutamik asit lizinle yer değiştirmişse hangi Hb oluşur?","HbC","HbS|HbF|HbA2|HbH"],
+["Kimya","HbS’de β zincirinin 6. konumunda glutamik asit yerine hangi aminoasit bulunur?","Valin","Lizin|Histidin|Glisin|Alanin"],
+["Kimya","ALA sentaz enziminin kofaktörü hangisidir?","Piridoksal fosfat (B6)","Tiamin pirofosfat|Biyotin|Folat|NAD+"],
+["Kimya","ALA sentaz hangi iki bileşiğin yoğunlaşmasını katalizler?","Glisin + süksinil-KoA","Glisin + asetil-KoA|Alanin + süksinil-KoA|Serin + malonil-KoA|Glutamat + piruvat"],
+["Kimya","ALAS2 geni defekti hangi hastalığa yol açar?","X’e bağlı sideroblastik anemi","Akut intermittent porfiri|Porfiria kutanea tarda|Talasemi|Demir eksikliği anemisi"],
+["Kimya","Hem sentezinde hız kısıtlayıcı enzim hangisidir?","ALA sentaz","ALA dehidrataz|Ferroşelataz|Porfobilinojen deaminaz|Üroporfirinojen dekarboksilaz"],
+["Kimya","Methemoglobinde demir hangi değerliktedir?","Fe3+","Fe2+|Fe0|Fe1+|Fe4+"],
+["Kimya","2,3-BPG’nin hemoglobin üzerindeki etkisi nedir?","O2 afinitesini azaltır","O2 afinitesini artırır|Etkisi yoktur|CO afinitesini artırır|Hem sentezini baskılar"],
+["Kimya","Erişkin HbA hangi zincirlerden oluşur?","α2β2","α2γ2|α2δ2|β4|γ4"]
+];
+const T={Mikro:150,Fizyo:120,Histo:110,Kimya:120};
+let seed=Date.now()%100000,Q={},cur="Tümü",i=0,ans={};
+function rnd(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}
+const shuf=a=>{a=a.slice();for(let k=a.length-1;k>0;k--){const j=Math.floor(rnd()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a};
+const pick=a=>a[Math.floor(rnd()*a.length)];
+function build(){
+ Q={};let id=0;
+ for(const b in T){
+  const qs=[],keys=new Set();
+  F.filter(f=>f[0]==b).forEach(f=>qs.push({id:id++,q:f[1],a:f[2],o:shuf([f[2],...f[3].split("|")])}));
+  const ss=S.filter(s=>s[0]==b).map(s=>({t:s[1],m:s[2].split("|"),n:s[3].split("|")}));
+  let k=0,g=0;
+  while(qs.length<T[b]&&g++<20000){
+   const s=ss[k++%ss.length];
+   const A=s.n.length<4?true:s.m.length<4?false:rnd()<.5;
+   const c=pick(A?s.n:s.m),ot=shuf(A?s.m:s.n).slice(0,4);
+   const key=s.t+A+c+ot.slice().sort().join();
+   if(keys.has(key))continue;keys.add(key);
+   qs.push({id:id++,q:"“"+s.t+"” grubuna ait "+(A?"OLMAYAN":"olan")+" hangisidir?",a:c,o:shuf([c,...ot])});
+  }
+  Q[b]=shuf(qs);
+ }
+}
+const list=()=>cur=="Tümü"?Object.values(Q).flat():Q[cur];
+const $=id=>document.getElementById(id);
+function tabs(){
+ const t=$("tabs");t.innerHTML="";
+ ["Tümü",...Object.keys(T)].forEach(b=>{
+  const x=document.createElement("button");x.className="tab"+(b==cur?" on":"");
+  x.textContent=b+" ("+(b=="Tümü"?Object.values(Q).flat().length:Q[b].length)+")";
+  x.onclick=()=>{cur=b;i=0;tabs();render()};t.appendChild(x)});
+}
+function render(){
+ const L=list(),q=L[i],card=$("card");card.innerHTML="";
+ const done=L.filter(x=>ans[x.id]!==undefined),ok=done.filter(x=>ans[x.id]==x.a).length;
+ $("pos").textContent="Soru "+(i+1)+" / "+L.length;
+ $("sc").textContent="✔ "+ok+"   ✘ "+(done.length-ok)+"   Cevaplanan: "+done.length;
+ $("pb").style.width=(done.length/L.length*100)+"%";
+ const p=document.createElement("p");p.className="q";p.textContent=(i+1)+". "+q.q;card.appendChild(p);
+ const given=ans[q.id];
+ q.o.forEach((o,k)=>{
+  const b=document.createElement("button");b.className="o";b.textContent="ABCDE"[k]+") "+o;
+  if(given!==undefined){b.disabled=true;if(o==q.a)b.classList.add("ok");else if(o==given)b.classList.add("no")}
+  b.onclick=()=>{ans[q.id]=o;render()};card.appendChild(b)});
+ const m=document.createElement("div");m.className="m";
+ if(given!==undefined)m.textContent=given==q.a?"✔ Doğru!":"✘ Yanlış. Doğru cevap: "+q.a;
+ card.appendChild(m);
+ $("pv").disabled=i==0;$("nx").disabled=i==L.length-1;
+}
+$("pv").onclick=()=>{i--;render()};
+$("nx").onclick=()=>{i++;render()};
+$("rs").onclick=()=>{ans={};i=0;build();tabs();render()};
+build();tabs();render();
+</script></body></html>
